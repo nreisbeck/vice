@@ -2638,6 +2638,30 @@
         }
       ]
     },
+    "PDXTWRWest": {
+      "arrivals": [
+        {
+          "waypoints": "N045.32.15.516,W121.54.26.180/ho SHAFR/a6700/s210/clearapp",
+          "star": "HHOOD6",
+          "cruise_altitude": 34000,
+          "route": "/. HHOOD",
+          "initial_controller": "1F",
+          "initial_altitude": 6700,
+          "initial_speed": 210,
+          "expect_approach": "I8R",
+          "scratchpad": "I8R",
+          "airports": ["KPDX"],
+          "airlines": {
+            "KPDX": [
+              {"icao": "ASA", "fleet": "short", "airport": "KSEA"},
+              {"icao": "QXE", "fleet": "short", "airport": "KSEA"},
+              {"icao": "SWA", "fleet": "short", "airport": "KOAK"},
+              {"icao": "DAL", "fleet": "short", "airport": "KSLC"}
+            ]
+          }
+        }
+      ]
+    },
     "HHOODEast": {
       "arrivals": [
         {
@@ -5658,6 +5682,25 @@
   "reporting_points": ["HHOOD", "KRATR", "VANTZ"],
   "name": "P80",
   "scenarios": {
+    "KPDX Tower West": {
+      "configuration": "KPT",
+      "wind": {
+        "direction": "250-310"
+      },
+      "arrival_runways": [
+        {"airport": "KPDX", "runway": "28R"}
+      ],
+      "departure_runways": [
+        {"airport": "KPDX", "rate": 8, "runway": "28L", "hold_for_release": true},
+        {"airport": "KPDX", "rate": 8, "runway": "28R", "hold_for_release": true}
+      ],
+      "inbound_rates": {
+        "PDXTWRWest": {
+          "KPDX": 12
+        }
+      },
+      "default_maps": ["RWY 28"]
+    },
     "KPDX West": {
       "arrival_runways": [
         {

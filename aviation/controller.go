@@ -20,6 +20,8 @@ type Controller struct {
 	ERAMFacility       bool      `json:"-"`              // Set at runtime from facility type; true for ARTCC controllers
 	Facility           string    `json:"facility"`       // So we can get the STARS facility from a controller
 	Area               string    `json:"area,omitempty"` // For TRACON: auto-derived from first digit of Position. For ERAM: must be manually specified.
+	IsTower            bool      `json:"is_tower,omitempty"`      // True for tower cab positions; when a human covers one, aircraft on final require an explicit landing clearance.
+	TowerAirport       string    `json:"tower_airport,omitempty"` // For tower positions: the ICAO id of the airport the cab serves.
 }
 
 func (c Controller) IsExternal() bool {

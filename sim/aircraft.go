@@ -96,6 +96,11 @@ type Aircraft struct {
 	SentAroundForSpacing bool
 	// Set when a spacing check rolled "no go-around"; prevents re-rolling every tick.
 	SpacingGoAroundDeclined bool
+	// Set when a human tower controller has issued a landing clearance.
+	ClearedToLand bool
+	// Set once the aircraft has gone around for lack of a landing
+	// clearance so the check does not refire.
+	WentAroundNoLandingClearance bool
 	// Set when going around on runway heading (vs a specific assigned heading).
 	GoAroundOnRunwayHeading bool
 	// Set when the aircraft has gone around; prevents the arrival drop

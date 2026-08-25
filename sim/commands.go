@@ -403,6 +403,43 @@ func (s *Sim) ContactTower(tcw TCW, callsign av.ADSBCallsign, freq av.Frequency)
 		})
 }
 
+// ClearedToLand records a human tower controller's landing clearance for an
+// aircraft on approach. Aircraft on the frequency of a staffed tower cab go
+// around from short final if this has not been issued.
+func (s *Sim) ClearedToLand(tcw TCW, callsign av.ADSBCallsign) (av.CommandIntent, error) {
+	s.mu.Lock(s.lg)
+	defer s.mu.Unlock(s.lg)
+
+	return s.dispatchControlledAircraftCommand(tcw, callsign,
+		func(tcw TCW, ac *Aircraft) av.CommandIntent {
+			if ac.FlightPlan.Rules == av.FlightRulesIFR && ac.Nav.Approach.Assigned == nil {
+				return av.MakeUnableIntent("unable. We haven't been given an approach.")
+			}
+			ac.ClearedToLand = true
+			var runway string
+			if ap := ac.Nav.Approach.Assigned; ap != nil {
+				runway = ap.Runway
+			}
+			return av.ClearedToLandIntent{Runway: runway}
+		})
+}
+
+// ClearedForTakeoff is the tower-side takeoff clearance: it releases a held
+// departure and has the pilot read the clearance back.
+func (s *Sim) ClearedForTakeoff(tcw TCW, callsign av.ADSBCallsign) (av.CommandIntent, error) {
+	if err := s.ReleaseDeparture(tcw, callsign); err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock(s.lg)
+	defer s.mu.Unlock(s.lg)
+	var runway string
+	if ac, ok := s.Aircraft[callsign]; ok {
+		runway = string(ac.FlightPlan.DepartureRunway)
+	}
+	return av.ClearedForTakeoffIntent{Runway: runway}, nil
+}
+
 // ATISCommand handles the controller telling a pilot the current ATIS letter.
 // If the aircraft already reported the correct ATIS, no readback is needed.
 // Otherwise the pilot responds with "we'll pick up (letter)".

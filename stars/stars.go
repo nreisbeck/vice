@@ -1325,6 +1325,7 @@ func (sp *STARSPane) Draw(ctx *panes.Context, cb *renderer.CommandBuffer) {
 	sp.drawVideoMaps(ctx, transforms, cb)
 
 	sp.drawScenarioRoutes(ctx, transforms, sp.systemFont(ctx, ps.CharSize.Tools), cb)
+	sp.drawASDEX(ctx, transforms, cb)
 
 	sp.drawCRDARegions(ctx, transforms, cb)
 	sp.drawSelectedRoute(ctx, transforms, cb)

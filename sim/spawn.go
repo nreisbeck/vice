@@ -721,6 +721,9 @@ type DepartureRunway struct {
 	Runway      av.RunwayID `json:"runway"`
 	Category    string      `json:"category,omitempty"`
 	DefaultRate float32     `json:"rate"`
+	// HoldForRelease holds this runway's IFR departures for a release (or
+	// a tower takeoff clearance) even when the airport itself doesn't.
+	HoldForRelease bool `json:"hold_for_release,omitempty"`
 }
 
 type ArrivalRunway struct {

@@ -1198,7 +1198,8 @@ func (s *Sim) initializeIFRDepartureNoLock(ac *Aircraft, ap *av.Airport, departu
 	nasFp.AssignedAltitude = util.Select(!isTRACON, ac.FlightPlan.Altitude, 0)
 	nasFp.RNAV = s.State.FacilityAdaptation.Datablocks.DisplayRNAVSymbol && exitRoute.IsRNAV
 
-	ac.HoldForRelease = (ap.HoldForRelease || exitRoute.HoldForRelease) && ac.FlightPlan.Rules == av.FlightRulesIFR // VFRs aren't held
+	ac.HoldForRelease = (ap.HoldForRelease || exitRoute.HoldForRelease ||
+		s.runwayHoldForRelease(departureAirport, runway)) && ac.FlightPlan.Rules == av.FlightRulesIFR // VFRs aren't held
 	s.assignDepartureController(ac, &nasFp, ap, exitRoute, departureAirport, string(runway))
 
 	// Adapted scratchpads are per-area, so this must follow the controller assignment above.
@@ -1649,4 +1650,16 @@ func (s *Sim) adjustRouteForMVA(callsign string, wps []av.Waypoint) []av.Waypoin
 	}
 
 	return result
+}
+
+
+// runwayHoldForRelease reports whether the scenario marks the given
+// departure runway hold-for-release.
+func (s *Sim) runwayHoldForRelease(airport string, runway av.RunwayID) bool {
+	for _, dr := range s.State.DepartureRunways {
+		if dr.Airport == airport && dr.Runway == runway && dr.HoldForRelease {
+			return true
+		}
+	}
+	return false
 }

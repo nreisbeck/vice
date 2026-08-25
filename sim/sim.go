@@ -825,6 +825,19 @@ func (s *Sim) isVirtualController(pos ControlPosition) bool {
 	return !s.ScenarioDefaultConsolidation.IsHumanPosition(pos)
 }
 
+// landingClearanceRequired reports whether the aircraft's arrival airport
+// has a tower cab position covered by a human controller; if so, an
+// explicit landing clearance is required.
+func (s *Sim) landingClearanceRequired(ac *Aircraft) bool {
+	for tcp, ctrl := range s.ControlPositions {
+		if ctrl.IsTower && ctrl.TowerAirport == ac.FlightPlan.ArrivalAirport &&
+			s.ScenarioDefaultConsolidation.IsHumanPosition(ControlPosition(tcp)) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Sim) isTRACONController(pos ControlPosition) bool {
 	ctrl, ok := s.State.Controllers[pos]
 	return ok && !ctrl.ERAMFacility
@@ -1330,6 +1343,16 @@ func (s *Sim) updateState() {
 
 				if passedWaypoint.SequenceVFRLanding() {
 					s.sequenceVFRLanding(ac)
+				}
+			}
+
+			// A staffed tower cab must issue a landing clearance; aircraft
+			// reaching short final without one go around.
+			if !ac.ClearedToLand && !ac.WentAroundNoLandingClearance &&
+				ac.Nav.Approach.Cleared && s.landingClearanceRequired(ac) {
+				if d, err := ac.DistanceToEndOfApproach(); err == nil && d < 1.5 {
+					ac.WentAroundNoLandingClearance = true
+					s.goAround(ac)
 				}
 			}
 

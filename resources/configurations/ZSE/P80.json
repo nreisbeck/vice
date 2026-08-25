@@ -1,21 +1,29 @@
 {
   "control_positions": {
     "1H": {
+      "is_tower": true,
+      "tower_airport": "KHIO",
       "callsign": "HIO Tower",
       "frequency": 119300,
       "radio_name": "Hillsboro Tower"
     },
     "1W": {
+      "is_tower": true,
+      "tower_airport": "KPDX",
       "callsign": "PDX Tower North",
       "frequency": 118700,
       "radio_name": "Portland Tower"
     },
     "1O": {
+      "is_tower": true,
+      "tower_airport": "KPDX",
       "callsign": "PDX Tower South",
       "frequency": 123775,
       "radio_name": "Portland Tower"
     },
     "1Y": {
+      "is_tower": true,
+      "tower_airport": "KTTD",
       "callsign": "TTD_TWR",
       "frequency": 120900,
       "radio_name": "Troutdale Tower"
@@ -95,6 +103,20 @@
         },
         "default_consolidation": {
           "1F": []
+        }
+      },
+      "KPT": {
+        "inbound_assignments": {
+          "PDXTWRWest": "1W"
+        },
+        "departure_assignments": {
+          "KPDX": "1W"
+        },
+        "go_around_assignments": {
+          "KPDX": "1W"
+        },
+        "default_consolidation": {
+          "1W": []
         }
       },
       "KP3": {

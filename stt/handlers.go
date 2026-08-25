@@ -1654,6 +1654,20 @@ func registerAllCommands() {
 		WithName("intercept_localizer_side"),
 		WithPriority(11),
 	)
+	// Tower: landing and takeoff clearances (runway, if spoken, is
+	// implicit: the aircraft's assigned approach / departure runway).
+	registerSTTCommand(
+		"cleared to land",
+		func() string { return "CTL" },
+		WithName("cleared_to_land"),
+		WithPriority(15),
+	)
+	registerSTTCommand(
+		"cleared for takeoff|cleared for take off",
+		func() string { return "CTO" },
+		WithName("cleared_for_takeoff"),
+		WithPriority(15),
+	)
 	// Pattern: "intercept the localizer" - basic pattern
 	// Note: garbage words between "intercept" and "localizer" are handled by
 	// the slack mechanism in literalMatcher, not by enumerating them here.

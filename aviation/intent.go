@@ -886,6 +886,32 @@ func (a ATISIntent) Render(rt *RadioTransmission, r *rand.Rand) {
 	rt.Add("[we'll pick up {ch}|we'll get {ch}]", a.Letter)
 }
 
+// ClearedToLandIntent represents the pilot's readback of a landing clearance.
+type ClearedToLandIntent struct {
+	Runway string
+}
+
+func (c ClearedToLandIntent) Render(rt *RadioTransmission, r *rand.Rand) {
+	if c.Runway != "" {
+		rt.Add("cleared to land [runway|] {rwy}", c.Runway)
+	} else {
+		rt.Add("cleared to land")
+	}
+}
+
+// ClearedForTakeoffIntent represents the pilot's readback of a takeoff clearance.
+type ClearedForTakeoffIntent struct {
+	Runway string
+}
+
+func (c ClearedForTakeoffIntent) Render(rt *RadioTransmission, r *rand.Rand) {
+	if c.Runway != "" {
+		rt.Add("cleared for takeoff [runway|] {rwy}", c.Runway)
+	} else {
+		rt.Add("[cleared for takeoff|rolling, cleared for takeoff]")
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Traffic Advisory Intent
 

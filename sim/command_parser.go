@@ -504,7 +504,11 @@ func (s *Sim) runOneControlCommand(tcw TCW, callsign av.ADSBCallsign, command st
 		}
 
 	case 'C':
-		if command == "CAC" {
+		if command == "CTL" {
+			return s.ClearedToLand(tcw, callsign)
+		} else if command == "CTO" {
+			return s.ClearedForTakeoff(tcw, callsign)
+		} else if command == "CAC" {
 			return s.CancelApproachClearance(tcw, callsign)
 		} else if command == "CWT" {
 			return s.CautionWakeTurbulence(tcw, callsign)
