@@ -208,6 +208,16 @@
         "receiving_controller": "C32"
       },
       {
+        "fixes": ["HOGUM", "TMK"],
+        "altitude_range": [0, 9000],
+        "receiving_controller": "C04"
+      },
+      {
+        "fixes": ["HOGUM"],
+        "altitude_range": [9100, 60000],
+        "receiving_controller": "C02"
+      },
+      {
         "fixes": ["ARRIE", "OLM"],
         "receiving_controller": "C02"
       },
