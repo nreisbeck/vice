@@ -108,6 +108,7 @@ func (s *Sim) updateDepartureSequence() {
 			depState.filterDeleted(s.Aircraft)
 			s.processGateDepartures(depState, now)
 			s.processHeldDepartures(depState, now)
+			s.positionQueuedDepartures(airport, depRunway, depState)
 			s.sequenceReleasedDepartures(depState, now)
 			s.launchSequencedDeparture(depState, airport, depRunway, now)
 		}
@@ -122,6 +123,12 @@ func (s *Sim) processGateDepartures(depState *RunwayLaunchState, now Time) {
 
 		ac := s.Aircraft[dep.ADSBCallsign]
 		if ac.HoldForRelease {
+			// A staffed tower's departure queue fills only to the
+			// configured depth; the rest wait at the gate.
+			if depth := s.State.LaunchConfig.DepartureQueueDepth; depth > 0 &&
+				len(depState.Held) >= int(depth) {
+				break
+			}
 			depState.Gate[i].RequestReleaseTime = now.Add(s.Rand.DurationRange(60*time.Second, 120*time.Second))
 			s.STARSComputer.AddHeldDeparture(ac)
 			depState.Held = append(depState.Held, depState.Gate[i])
@@ -218,6 +225,12 @@ func (s *Sim) launchSequencedDeparture(depState *RunwayLaunchState, airport stri
 	ac := s.Aircraft[dep.ADSBCallsign]
 
 	ac.WaitingForLaunch = false
+	if s.humanTowerAt(airport) {
+		// Move from the queue spot onto the runway for the roll.
+		if threshold, dir, ok := runwayThresholdAndDirection(airport, depRunway, s.State.NmPerLongitude); ok {
+			ac.Nav.FlightState.Position = math.NM2LL(math.Add2f(threshold, math.Scale2f(dir, 0.02)), s.State.NmPerLongitude)
+		}
+	}
 	dep.LaunchTime = now
 	depState.LastDeparture = &dep
 	depState.Sequenced = depState.Sequenced[1:]
@@ -1662,4 +1675,32 @@ func (s *Sim) runwayHoldForRelease(airport string, runway av.RunwayID) bool {
 		}
 	}
 	return false
+}
+
+// positionQueuedDepartures places a staffed tower's held departures in a
+// visible queue beside the runway threshold, sliding forward as the queue
+// drains.
+func (s *Sim) positionQueuedDepartures(airport string, rwy av.RunwayID, depState *RunwayLaunchState) {
+	if !s.humanTowerAt(airport) {
+		return
+	}
+	threshold, dir, ok := runwayThresholdAndDirection(airport, rwy, s.State.NmPerLongitude)
+	if !ok {
+		return
+	}
+	perp := [2]float32{-dir[1], dir[0]}
+	elev := float32(0)
+	if ap, ok := av.DB.Airports[airport]; ok {
+		elev = float32(ap.Elevation)
+	}
+	for i, dep := range depState.Held {
+		ac, ok := s.Aircraft[dep.ADSBCallsign]
+		if !ok || !ac.WaitingForLaunch {
+			continue
+		}
+		slot := math.Add2f(threshold, math.Scale2f(dir, -(0.10+0.05*float32(i))))
+		slot = math.Add2f(slot, math.Scale2f(perp, 0.06))
+		ac.Nav.FlightState.Position = math.NM2LL(slot, s.State.NmPerLongitude)
+		ac.Nav.FlightState.Altitude = elev
+	}
 }

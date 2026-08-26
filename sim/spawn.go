@@ -150,6 +150,10 @@ type LaunchConfig struct {
 	PublishedDepartureRateScale float32
 
 	GoAroundRate         float32
+	// DepartureQueueDepth caps how many held departures stack at the
+	// runway when a human tower covers the airport; the queue refills as
+	// takeoff clearances drain it. 0 leaves the queue uncapped.
+	DepartureQueueDepth int32
 	EnableTowerGoArounds bool
 	// airport -> runway -> category -> rate
 	DepartureRates     map[string]map[av.RunwayID]map[string]float32

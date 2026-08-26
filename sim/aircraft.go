@@ -101,6 +101,12 @@ type Aircraft struct {
 	// Set once the aircraft has gone around for lack of a landing
 	// clearance so the check does not refire.
 	WentAroundNoLandingClearance bool
+	// For LAHSO: the runway to hold short of after landing, from a
+	// "cleared to land, hold short" clearance.
+	LandingHoldShortRunway string
+	// Non-nil while the aircraft is rolling out on the runway after
+	// touchdown (staffed-tower airports only).
+	Rollout *RolloutState
 	// Set when going around on runway heading (vs a specific assigned heading).
 	GoAroundOnRunwayHeading bool
 	// Set when the aircraft has gone around; prevents the arrival drop

@@ -2159,6 +2159,8 @@ func drawDepartureUI(lc *sim.LaunchConfig, p platform.Platform) (changed bool) {
 	// from being here initially.
 	changed = imgui.SliderFloatV("Departure rate scale", &lc.DepartureRateScale, 0, 5, "%.1f", imgui.SliderFlagsNoInput) || changed
 
+	changed = imgui.SliderInt("Tower departure queue depth (0 = uncapped)", &lc.DepartureQueueDepth, 0, 10) || changed
+
 	flags := imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsRowBg | imgui.TableFlagsSizingStretchProp
 
 	if lc.DepartureRateScale == 0 {

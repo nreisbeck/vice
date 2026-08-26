@@ -27,6 +27,11 @@ func (s *Sim) contactDeparture(ac *Aircraft, fp *NASFlightPlan) {
 }
 
 func (s *Sim) isRadarVisible(ac *Aircraft) bool {
+	// Surface targets at an airport with a staffed tower cab stay visible
+	// (the ASDE-X case); elsewhere the surface-tracking filters apply.
+	if s.humanTowerAt(ac.FlightPlan.ArrivalAirport) || s.humanTowerAt(ac.FlightPlan.DepartureAirport) {
+		return true
+	}
 	filters := s.State.FacilityAdaptation.Filters
 	return !filters.SurfaceTracking.Inside(ac.Position(), int(ac.Altitude()))
 }

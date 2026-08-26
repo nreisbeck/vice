@@ -829,8 +829,14 @@ func (s *Sim) isVirtualController(pos ControlPosition) bool {
 // has a tower cab position covered by a human controller; if so, an
 // explicit landing clearance is required.
 func (s *Sim) landingClearanceRequired(ac *Aircraft) bool {
+	return s.humanTowerAt(ac.FlightPlan.ArrivalAirport)
+}
+
+// humanTowerAt reports whether the given airport has a tower cab position
+// that a human controller covers.
+func (s *Sim) humanTowerAt(airport string) bool {
 	for tcp, ctrl := range s.ControlPositions {
-		if ctrl.IsTower && ctrl.TowerAirport == ac.FlightPlan.ArrivalAirport &&
+		if ctrl.IsTower && ctrl.TowerAirport == airport &&
 			s.ScenarioDefaultConsolidation.IsHumanPosition(ControlPosition(tcp)) {
 			return true
 		}
@@ -1194,6 +1200,11 @@ func (s *Sim) updateState() {
 				continue
 			}
 
+			if ac.Rollout != nil {
+				s.updateRollout(ac)
+				continue
+			}
+
 			arrivalMETAR := s.State.METAR[ac.FlightPlan.ArrivalAirport]
 			updateResult := ac.Update(s.wxModel, s.State.SimTime, &arrivalMETAR, s.bravoAirspace, nil /* s.lg*/)
 			passedWaypoint := updateResult.PassedWaypoint
@@ -1335,7 +1346,13 @@ func (s *Sim) updateState() {
 							}
 						}
 
-						s.deleteAircraft(ac)
+						if s.landingClearanceRequired(ac) {
+							// Staffed tower: roll out and exit the
+							// runway rather than vanishing at touchdown.
+							s.beginRollout(ac)
+						} else {
+							s.deleteAircraft(ac)
+						}
 					} else {
 						s.goAround(ac)
 					}

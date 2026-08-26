@@ -888,7 +888,8 @@ func (a ATISIntent) Render(rt *RadioTransmission, r *rand.Rand) {
 
 // ClearedToLandIntent represents the pilot's readback of a landing clearance.
 type ClearedToLandIntent struct {
-	Runway string
+	Runway    string
+	HoldShort string // runway to hold short of (LAHSO), if any
 }
 
 func (c ClearedToLandIntent) Render(rt *RadioTransmission, r *rand.Rand) {
@@ -896,6 +897,9 @@ func (c ClearedToLandIntent) Render(rt *RadioTransmission, r *rand.Rand) {
 		rt.Add("cleared to land [runway|] {rwy}", c.Runway)
 	} else {
 		rt.Add("cleared to land")
+	}
+	if c.HoldShort != "" {
+		rt.Add(", hold short [of|] runway {rwy}", c.HoldShort)
 	}
 }
 

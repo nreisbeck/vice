@@ -406,7 +406,7 @@ func (s *Sim) ContactTower(tcw TCW, callsign av.ADSBCallsign, freq av.Frequency)
 // ClearedToLand records a human tower controller's landing clearance for an
 // aircraft on approach. Aircraft on the frequency of a staffed tower cab go
 // around from short final if this has not been issued.
-func (s *Sim) ClearedToLand(tcw TCW, callsign av.ADSBCallsign) (av.CommandIntent, error) {
+func (s *Sim) ClearedToLand(tcw TCW, callsign av.ADSBCallsign, holdShortRunway string) (av.CommandIntent, error) {
 	s.mu.Lock(s.lg)
 	defer s.mu.Unlock(s.lg)
 
@@ -415,12 +415,22 @@ func (s *Sim) ClearedToLand(tcw TCW, callsign av.ADSBCallsign) (av.CommandIntent
 			if ac.FlightPlan.Rules == av.FlightRulesIFR && ac.Nav.Approach.Assigned == nil {
 				return av.MakeUnableIntent("unable. We haven't been given an approach.")
 			}
+			if holdShortRunway != "" {
+				ap := ac.Nav.Approach.Assigned
+				if ap == nil {
+					return av.MakeUnableIntent("unable. We haven't been given an approach.")
+				}
+				if _, ok := s.holdShortDistanceNM(ac.FlightPlan.ArrivalAirport, ap, holdShortRunway); !ok {
+					return av.MakeUnableIntent("unable, we can't hold short of runway " + holdShortRunway)
+				}
+				ac.LandingHoldShortRunway = holdShortRunway
+			}
 			ac.ClearedToLand = true
 			var runway string
 			if ap := ac.Nav.Approach.Assigned; ap != nil {
 				runway = ap.Runway
 			}
-			return av.ClearedToLandIntent{Runway: runway}
+			return av.ClearedToLandIntent{Runway: runway, HoldShort: holdShortRunway}
 		})
 }
 

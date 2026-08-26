@@ -505,7 +505,10 @@ func (s *Sim) runOneControlCommand(tcw TCW, callsign av.ADSBCallsign, command st
 
 	case 'C':
 		if command == "CTL" {
-			return s.ClearedToLand(tcw, callsign)
+			return s.ClearedToLand(tcw, callsign, "")
+		} else if rwy, ok := strings.CutPrefix(command, "CTL/"); ok && rwy != "" {
+			// Land and hold short: CTL/<runway to hold short of>
+			return s.ClearedToLand(tcw, callsign, rwy)
 		} else if command == "CTO" {
 			return s.ClearedForTakeoff(tcw, callsign)
 		} else if command == "CAC" {
