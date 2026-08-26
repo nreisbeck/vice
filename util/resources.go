@@ -116,6 +116,22 @@ func findResourcesBasePath() string {
 		dir = filepath.Join(dir, "..")
 	}
 
+	// Fall back to looking relative to the executable: a binary run from
+	// outside the repo, or an app bundle carrying resources in
+	// Contents/Resources.
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		for _, candidate := range []string{
+			filepath.Join(exeDir, "resources"),
+			filepath.Join(exeDir, "..", "Resources", "resources"),
+		} {
+			if _, err := os.Stat(filepath.Join(candidate, "videomaps")); err == nil {
+				resourcesBasePath = candidate
+				return resourcesBasePath
+			}
+		}
+	}
+
 	panic("unable to find resources directory")
 }
 
