@@ -1419,7 +1419,9 @@ func (c *NewSimConfiguration) DrawScenarioSelectionUI(p platform.Platform, confi
 			imgui.Separator()
 			imgui.Spacing()
 			if imgui.BeginChildStrV("scenario_desc", imgui.Vec2{0, 0}, imgui.ChildFlagsBorders|imgui.ChildFlagsAutoResizeY, 0) {
-				imgui.TextWrapped(desc)
+				// TextWrapped printf-formats its argument; escape so a
+				// description containing % renders literally.
+				imgui.TextWrapped(strings.ReplaceAll(desc, "%", "%%"))
 			}
 			imgui.EndChild()
 		}
