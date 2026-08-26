@@ -996,6 +996,51 @@ func parseApproach(recs []ssaRecord, fixes map[string]Fix, navaids map[string]Na
 
 	appr := Approach{Id: tidyFAAApproachId(recs[0].id)}
 
+	// Capture the published missed approach: the transitions parse above
+	// stops at the missed-approach marker, so gather the records from the
+	// marker onward and parse their fix-based legs. Leading legs without a
+	// usable fix (climb-to-altitude and the like) are dropped so the
+	// waypoint sequence starts at a chartable point.
+	var missedRecs []ssaRecord
+	inMissed := false
+	for _, r := range recs {
+		if r.continuation != '0' && r.continuation != '1' {
+			continue
+		}
+		if !inMissed && len(r.waypointDescription) > 3 && r.waypointDescription[3] == 'M' {
+			inMissed = true
+		}
+		if inMissed {
+			missedRecs = append(missedRecs, r)
+		}
+	}
+	for len(missedRecs) > 0 {
+		pt := string(missedRecs[0].pathAndTermination)
+		if missedRecs[0].fix != "" && (pt == "TF" || pt == "IF" || pt == "CF" || pt == "DF" ||
+			pt == "HM" || pt == "HF" || pt == "HA") {
+			break
+		}
+		missedRecs = missedRecs[1:]
+	}
+	if len(missedRecs) > 0 {
+		missed := parseTransitions(missedRecs,
+			func(r ssaRecord) bool { return false },
+			func(r ssaRecord) bool { return r.fix == "" },
+			func(r ssaRecord, transitions map[string]WaypointArray) bool { return false })
+		for _, wps := range missed {
+			// Drop the runway-as-waypoint record leading the sequence and
+			// collapse the duplicate fix a trailing hold record produces.
+			for len(wps) > 0 && strings.HasPrefix(wps[0].Fix, "RW") {
+				wps = wps[1:]
+			}
+			wps = slices.CompactFunc(wps, func(a, b Waypoint) bool { return a.Fix == b.Fix })
+			if len(wps) > 0 {
+				appr.MissedApproach = wps
+				break
+			}
+		}
+	}
+
 	switch recs[0].id[0] {
 	case 'H', 'R':
 		appr.Type = RNAVApproach

@@ -274,6 +274,13 @@ func (p *approachParser) parseScored(tokens []Token, pos int, ac Aircraft) (any,
 		}
 	}
 
+	// Circle to land: "cleared VOR alpha approach, circle to land runway 15"
+	if pos+consumed < len(tokens) {
+		if circleRwy, circleConsumed := extractCircleToLand(tokens[pos+consumed:], ac.Runways); circleConsumed > 0 {
+			return appr + "/C" + circleRwy, consumed + circleConsumed, score, ""
+		}
+	}
+
 	return appr, consumed, score, ""
 }
 
@@ -569,6 +576,23 @@ func (p *holdParser) parse(tokens []Token, pos int, ac Aircraft) (any, int, stri
 
 	// Fall back to just the fix for "as published" holds
 	return "H" + fix, fixConsumed, ""
+}
+
+// runwayParser extracts a runway identifier at the arrival airport.
+type runwayParser struct{}
+
+func (p *runwayParser) goType() reflect.Type {
+	return reflect.TypeFor[string]()
+}
+
+func (p *runwayParser) parse(tokens []Token, pos int, ac Aircraft) (any, int, string) {
+	if pos >= len(tokens) || len(ac.Runways) == 0 {
+		return nil, 0, ""
+	}
+	if rwy, consumed := matchLAHSORunway(tokens[pos:], ac.Runways); rwy != "" {
+		return rwy, consumed, ""
+	}
+	return nil, 0, ""
 }
 
 // textParser extracts a single word token. Used for free-form text like facility names.
@@ -991,6 +1015,8 @@ func getTypeParser(typeID string) typeParser {
 		return &trafficParser{}
 	case "traffic_visual_sep":
 		return &trafficVisualSepParser{}
+	case "runway":
+		return &runwayParser{}
 	case "hold":
 		return &holdParser{}
 	case "text":

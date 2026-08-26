@@ -639,6 +639,13 @@ func (s *Sim) runOneControlCommand(tcw TCW, callsign av.ADSBCallsign, command st
 		}
 
 	case 'E':
+		for _, pe := range []string{"ELD", "ERD", "ELB", "ERB", "ESI"} {
+			if rwy, ok := strings.CutPrefix(command, pe); ok && (rwy == "" || (rwy[0] >= '0' && rwy[0] <= '9')) {
+				// Pattern-position instructions: enter left/right
+				// downwind or base, or make straight in.
+				return s.EnterTrafficPattern(tcw, callsign, rwy, pe[1:])
+			}
+		}
 		if command == "ED" {
 			return s.ExpediteDescent(tcw, callsign)
 		} else if a, ok := strings.CutPrefix(command, "ED"); ok && len(a) > 0 {

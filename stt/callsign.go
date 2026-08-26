@@ -97,6 +97,7 @@ type Aircraft struct {
 	TrackingController        string                       `json:",omitempty"` // Controller tracking this aircraft (from flight plan)
 	AddressingForm            sim.CallsignAddressingForm   `json:",omitempty"` // How this aircraft was addressed (based on which key matched)
 	LAHSORunways              []string                     `json:",omitempty"` // Runways that intersect the approach runway (for LAHSO matching)
+	Runways                   []string                     `json:",omitempty"` // All runways at the arrival airport (for circle-to-land matching)
 }
 
 // findWeightClassTokenIndex checks the early tokens (callsign region) for "heavy" or "super".

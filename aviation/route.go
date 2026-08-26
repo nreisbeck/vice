@@ -224,15 +224,19 @@ type WaypointExtra struct {
 	HandoffController         ControlPosition
 	PointOut                  ControlPosition
 	GoAroundContactController ControlPosition
-	Airway                    string
-	PrimaryScratchpad         string
-	SecondaryScratchpad       string
-	Radius                    float32
-	Shift                     float32
-	ClimbAltitude             int16 // hundreds of feet; 0 = unset
-	DescendAltitude           int16 // hundreds of feet; 0 = unset
-	AirworkRadius             int8
-	AirworkMinutes            int8
+	// RequestResequence has the pilot ask for another approach when
+	// passing the waypoint (e.g. established on the downwind after a
+	// pattern-rejoin go-around).
+	RequestResequence   bool
+	Airway              string
+	PrimaryScratchpad   string
+	SecondaryScratchpad string
+	Radius              float32
+	Shift               float32
+	ClimbAltitude       int16 // hundreds of feet; 0 = unset
+	DescendAltitude     int16 // hundreds of feet; 0 = unset
+	AirworkRadius       int8
+	AirworkMinutes      int8
 }
 
 // InitExtra allocates Extra if nil and returns it.
@@ -436,6 +440,7 @@ func (wp Waypoint) GoAroundContactController() ControlPosition {
 	}
 	return ""
 }
+
 func (wp Waypoint) Airway() string {
 	if wp.Extra != nil {
 		return wp.Extra.Airway

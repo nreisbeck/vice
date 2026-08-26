@@ -1298,6 +1298,44 @@ func runwayMatches(spokenLower, runwaySpoken string) bool {
 // extractLAHSO looks for "land and hold short" pattern and extracts the LAHSO runway.
 // Returns the matched runway and total tokens consumed from the start of the pattern.
 // Expects tokens starting from "land" or "hold" keyword.
+// extractCircleToLand finds "circle [to] [land] [runway] <runway>" in the
+// tokens following an approach clearance and returns the landing runway
+// and tokens consumed.
+func extractCircleToLand(tokens []Token, runways []string) (string, int) {
+	if len(tokens) == 0 || len(runways) == 0 {
+		return "", 0
+	}
+
+	circleIdx := -1
+	for i, t := range tokens {
+		if text := strings.ToLower(t.Text); text == "circle" || FuzzyMatch(text, "circle", 0.8) {
+			circleIdx = i
+			break
+		}
+	}
+	if circleIdx == -1 {
+		return "", 0
+	}
+
+	searchIdx := circleIdx + 1
+	for searchIdx < len(tokens) {
+		text := strings.ToLower(tokens[searchIdx].Text)
+		if text == "to" || text == "land" || text == "runway" || text == "the" {
+			searchIdx++
+			continue
+		}
+		break
+	}
+	if searchIdx >= len(tokens) {
+		return "", 0
+	}
+
+	if rwy, consumed := matchLAHSORunway(tokens[searchIdx:], runways); rwy != "" {
+		return rwy, searchIdx + consumed - circleIdx
+	}
+	return "", 0
+}
+
 func extractLAHSO(tokens []Token, lahsoRunways []string) (string, int) {
 	if len(tokens) == 0 || len(lahsoRunways) == 0 {
 		return "", 0

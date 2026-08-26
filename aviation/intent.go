@@ -5,6 +5,7 @@
 package aviation
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -738,10 +739,12 @@ func (a ApproachIntent) Render(rt *RadioTransmission, r *rand.Rand) {
 
 // ClearedApproachIntent represents approach clearance
 type ClearedApproachIntent struct {
-	Approach    string
-	StraightIn  bool
-	CancelHold  bool
-	LAHSORunway string
+	Approach     string
+	StraightIn   bool
+	CancelHold   bool
+	LAHSORunway  string
+	PatternEntry string // "left traffic", "right base", ... for pattern-entry and circling clearances
+	CircleToLand string // landing runway for a circle-to-land clearance
 }
 
 func (c ClearedApproachIntent) Render(rt *RadioTransmission, r *rand.Rand) {
@@ -764,6 +767,12 @@ func (c ClearedApproachIntent) Render(rt *RadioTransmission, r *rand.Rand) {
 	}
 	if c.LAHSORunway != "" {
 		rt.Add("[and we'll hold short of|hold short of] runway {rwy}", c.LAHSORunway)
+	}
+	if c.CircleToLand != "" {
+		rt.Add(", circle to land [runway|] {rwy}", c.CircleToLand)
+	}
+	if c.PatternEntry != "" {
+		rt.Add(", " + c.PatternEntry)
 	}
 }
 
@@ -875,6 +884,35 @@ func (c ContactTowerIntent) Render(rt *RadioTransmission, r *rand.Rand) {
 	} else {
 		rt.Add("[contact|over to|] tower")
 	}
+}
+
+// OrbitIntent is the readback for a commanded 360.
+type OrbitIntent struct {
+	Left    bool
+	Degrees int
+}
+
+func (o OrbitIntent) Render(rt *RadioTransmission, r *rand.Rand) {
+	dir := "right"
+	if o.Left {
+		dir = "left"
+	}
+	if o.Degrees == 360 {
+		rt.Add("[" + dir + " three sixty|making a " + dir + " three sixty]")
+	} else {
+		rt.Add(fmt.Sprintf("%s %d", dir, o.Degrees))
+	}
+}
+
+// EnterPatternIntent is the readback for a pattern-position instruction
+// ("enter left downwind runway 28R", "make straight in runway 15").
+type EnterPatternIntent struct {
+	Position string // "left downwind", "right base", "straight in"
+	Runway   string
+}
+
+func (e EnterPatternIntent) Render(rt *RadioTransmission, r *rand.Rand) {
+	rt.Add("[enter|] "+e.Position+" [runway|] {rwy}", e.Runway)
 }
 
 // DirectNumbersIntent is the readback for "direct the numbers".

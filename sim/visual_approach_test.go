@@ -709,7 +709,7 @@ func TestVisualApproachWaypoints(t *testing.T) {
 			n.Approach.AssignedId = "_VIS36"
 			n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 			n.Approach.VisualReferences = []*av.Approach{reference}
-			intent := n.ClearedVisualApproach(nil, "")
+			intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 			if tt.wantNil {
 				if _, unable := intent.(av.UnableIntent); !unable {
 					t.Fatalf("expected UnableIntent, got %T: %v", intent, intent)
@@ -816,7 +816,7 @@ func TestVisualApproachWaypointsUseReferenceApproachDogleg(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	_ = n.ClearedVisualApproach(nil, "")
+	_ = n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 
 	if len(n.Waypoints) < 5 {
 		t.Fatalf("expected projection, intermediate dogleg fixes, 3nm final, and threshold; got %v", wpNames(n.Waypoints))
@@ -882,7 +882,7 @@ func TestVisualApproachBelowNaturalTODUsesFAFOn3NMFinal(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	intent := n.ClearedVisualApproach(nil, "")
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 	if _, unable := intent.(av.UnableIntent); unable {
 		t.Fatalf("unexpected UnableIntent: %v", intent)
 	}
@@ -949,7 +949,7 @@ func TestVisualApproachPreservesAssignedDescent(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	intent := n.ClearedVisualApproach(nil, "")
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 	if _, unable := intent.(av.UnableIntent); unable {
 		t.Fatalf("unexpected UnableIntent: %v", intent)
 	}
@@ -1000,7 +1000,7 @@ func TestVisualApproachJoinIsFAFWhenPastNaturalTOD(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	intent := n.ClearedVisualApproach(nil, "")
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 	if _, unable := intent.(av.UnableIntent); unable {
 		t.Fatalf("unexpected UnableIntent: %v", intent)
 	}
@@ -1073,7 +1073,7 @@ func TestVisualApproachDropsNonDescentAssignment(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	intent := n.ClearedVisualApproach(nil, "")
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 	if _, unable := intent.(av.UnableIntent); unable {
 		t.Fatalf("unexpected UnableIntent: %v", intent)
 	}
@@ -1132,7 +1132,7 @@ func TestVisualApproachPreservesPendingDescent(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	intent := n.ClearedVisualApproach(nil, "")
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 	if _, unable := intent.(av.UnableIntent); unable {
 		t.Fatalf("unexpected UnableIntent: %v", intent)
 	}
@@ -1188,7 +1188,7 @@ func TestVisualApproachDropsAssignedDescentBelowProfile(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	intent := n.ClearedVisualApproach(nil, "")
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 	if _, unable := intent.(av.UnableIntent); unable {
 		t.Fatalf("unexpected UnableIntent: %v", intent)
 	}
@@ -1247,7 +1247,7 @@ func TestVisualApproachLowAircraftKeepsFAFOn3NMFinal(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	intent := n.ClearedVisualApproach(nil, "")
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 	if _, unable := intent.(av.UnableIntent); unable {
 		t.Fatalf("unexpected UnableIntent: %v", intent)
 	}
@@ -1321,7 +1321,7 @@ func TestVisualApproachFollowingTrafficTurnsBase(t *testing.T) {
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	n.Approach.VisualReferences = []*av.Approach{reference}
-	_ = n.ClearedVisualApproach(&nav.FollowTraffic{Position: trafficPos}, "")
+	_ = n.ClearedVisualApproach(&nav.FollowTraffic{Position: trafficPos}, "", nav.VisualEntryNone)
 
 	wps := n.Waypoints
 	if len(wps) != 4 {
@@ -1476,7 +1476,7 @@ func TestVisualApproachFollowingTrafficCopiesRemainingTrafficRoute(t *testing.T)
 	trafficRoute := av.WaypointArray{final3NM, threshold, n.FlightState.ArrivalAirport}
 	n.Approach.AssignedId = "_VIS36"
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
-	_ = n.ClearedVisualApproach(&nav.FollowTraffic{Position: trafficPos, Route: trafficRoute}, "")
+	_ = n.ClearedVisualApproach(&nav.FollowTraffic{Position: trafficPos, Route: trafficRoute}, "", nav.VisualEntryNone)
 	if got := wpNames(n.Waypoints); !slices.Equal(got, []string{"_36_FOLLOW_TRAFFIC", "_36_3NM_FINAL", "RW36", "KTEST"}) {
 		t.Fatalf("route = %v, want traffic, 3nm final, threshold, airport", got)
 	}
@@ -1510,7 +1510,7 @@ func TestVisualApproachFollowingTrafficRejectsNearThresholdLeader(t *testing.T) 
 	n.Approach.Assigned = &av.Approach{Type: av.VisualApproach, Runway: "36", FullName: "Visual Approach Runway 36"}
 	intent := n.ClearedVisualApproach(
 		&nav.FollowTraffic{Position: trafficPos, Route: av.WaypointArray{threshold, n.FlightState.ArrivalAirport}},
-		"")
+		"", nav.VisualEntryNone)
 	if _, ok := intent.(av.UnableIntent); !ok {
 		t.Fatalf("expected UnableIntent when leader is inside 0.5nm of threshold, got %T", intent)
 	}
@@ -2647,7 +2647,7 @@ func TestDownwindVisualJoinFlies(t *testing.T) {
 				},
 			}
 
-			intent := n.ClearedVisualApproach(nil, "")
+			intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryNone)
 			if _, unable := intent.(av.UnableIntent); unable {
 				t.Fatalf("clearance refused: %v", intent)
 			}
@@ -2677,5 +2677,200 @@ func TestDownwindVisualJoinFlies(t *testing.T) {
 				t.Errorf("aircraft wandered %.1fnm from the field (permanent downwind?)", maxDist)
 			}
 		})
+	}
+}
+
+// TestVisualApproachPatternEntry: "cleared visual approach, left traffic"
+// synthesizes a pattern-entry route on the requested side ending at the
+// runway (#865).
+func TestVisualApproachPatternEntry(t *testing.T) {
+	airportLoc := math.Point2LL{0, 0}
+	oppLoc := math.Point2LL{0, 1.0 / 60}
+	setupTestRunways(t, "KPAT", []av.Runway{
+		{Id: "36", Heading: 360, Threshold: airportLoc, Elevation: 0, ThresholdCrossingHeight: 50},
+		{Id: "18", Heading: 180, Threshold: oppLoc, Elevation: 0},
+	})
+
+	mkNav := func() nav.Nav {
+		return nav.Nav{
+			FlightState: nav.FlightState{
+				Position:       math.Point2LL{3.0 / 60, 2.0 / 60}, // northeast of the field
+				Heading:        250,
+				Altitude:       2500,
+				NmPerLongitude: 60,
+				ArrivalAirport: av.Waypoint{Fix: "KPAT"},
+			},
+			Approach: nav.NavApproach{
+				AssignedId: "_VIS36",
+				Assigned: &av.Approach{
+					Type:     av.VisualApproach,
+					Runway:   "36",
+					FullName: "Visual Approach Runway 36",
+				},
+			},
+		}
+	}
+
+	n := mkNav()
+	intent := n.ClearedVisualApproach(nil, "", nav.VisualEntryLeftTraffic)
+	ca, ok := intent.(av.ClearedApproachIntent)
+	if !ok {
+		t.Fatalf("expected ClearedApproachIntent, got %T: %v", intent, intent)
+	}
+	if ca.PatternEntry != "left traffic" {
+		t.Errorf("PatternEntry = %q, want %q", ca.PatternEntry, "left traffic")
+	}
+	wps := n.Waypoints
+	if len(wps) < 5 || wps[0].Fix != "_36_DOWNWIND" || wps[len(wps)-2].Fix != "_36_THRESHOLD" {
+		t.Fatalf("unexpected pattern route: %v", wpNames(wps))
+	}
+	if !wps[len(wps)-2].Land() {
+		t.Errorf("expected Land flag on the threshold waypoint")
+	}
+	// Left traffic for runway 36 puts the downwind west of the field.
+	if wps[0].Location[0] >= 0 {
+		t.Errorf("left-traffic downwind should be west of the runway, got lon %v", wps[0].Location[0])
+	}
+
+	// Right base: two legs plus threshold, east of the field.
+	n2 := mkNav()
+	_ = n2.ClearedVisualApproach(nil, "", nav.VisualEntryRightBase)
+	wps2 := n2.Waypoints
+	if len(wps2) < 3 || wps2[0].Fix != "_36_BASE" {
+		t.Fatalf("unexpected base-entry route: %v", wpNames(wps2))
+	}
+	if wps2[0].Location[0] <= 0 {
+		t.Errorf("right-base entry should be east of the runway, got lon %v", wps2[0].Location[0])
+	}
+}
+
+// TestCircleToLand: "cleared [instrument] approach, circle to land runway
+// XX" flies the approach to the FAF, then circles via a pattern route to
+// the landing runway.
+func TestCircleToLand(t *testing.T) {
+	airportLoc := math.Point2LL{0, 0}
+	oppLoc := math.Point2LL{0, 1.0 / 60}
+	setupTestRunways(t, "KPAT", []av.Runway{
+		{Id: "36", Heading: 360, Threshold: airportLoc, Elevation: 0, ThresholdCrossingHeight: 50},
+		{Id: "18", Heading: 180, Threshold: oppLoc, Elevation: 0, ThresholdCrossingHeight: 50},
+	})
+
+	n := nav.Nav{
+		FlightState: nav.FlightState{
+			Position:       math.Point2LL{0, -8.0 / 60},
+			Heading:        360,
+			Altitude:       3000,
+			NmPerLongitude: 60,
+			ArrivalAirport: av.Waypoint{Fix: "KPAT"},
+		},
+		Approach: nav.NavApproach{
+			AssignedId: "L36",
+			Assigned: &av.Approach{
+				Type:     av.LocalizerApproach,
+				Runway:   "36",
+				FullName: "Localizer Runway 36",
+			},
+		},
+	}
+
+	n.Heading.Assigned = ptr(math.MagneticHeading(360))
+	intent := n.ClearedApproach("L36/C18/RT", nil, Time{}.NavTime(), false)
+	ca, ok := intent.(av.ClearedApproachIntent)
+	if !ok {
+		t.Fatalf("expected ClearedApproachIntent, got %T: %v", intent, intent)
+	}
+	if ca.CircleToLand != "18" || ca.PatternEntry != "right traffic" {
+		t.Errorf("CircleToLand=%q PatternEntry=%q, want 18 / right traffic", ca.CircleToLand, ca.PatternEntry)
+	}
+	if n.Approach.CircleToLand == nil || n.Approach.CircleToLand.Runway != "18" {
+		t.Fatalf("CircleToLand not recorded: %+v", n.Approach.CircleToLand)
+	}
+
+	// Simulate crossing the FAF: the circling pattern replaces the route.
+	n.BeginCircleToLandForTest()
+	wps := n.Waypoints
+	if len(wps) < 5 || wps[0].Fix != "_18_DOWNWIND" {
+		t.Fatalf("expected circling pattern to runway 18, got %v", wpNames(wps))
+	}
+	// Unknown circle runway is refused at clearance time.
+	n2 := n
+	n2.Approach.Cleared = false
+	n2.Approach.CircleToLand = nil
+	if intent := n2.ClearedApproach("L36/C27", nil, Time{}.NavTime(), false); intent != nil {
+		if _, unable := intent.(av.UnableIntent); !unable {
+			t.Errorf("expected UnableIntent for unknown circle runway, got %T", intent)
+		}
+	}
+}
+
+// TestEnterTrafficPattern: standalone pattern-position instructions
+// ("enter left downwind", "join right base", "make straight in").
+func TestEnterTrafficPattern(t *testing.T) {
+	airportLoc := math.Point2LL{0, 0}
+	oppLoc := math.Point2LL{0, 1.0 / 60}
+	setupTestRunways(t, "KPAT", []av.Runway{
+		{Id: "36", Heading: 360, Threshold: airportLoc, Elevation: 0},
+		{Id: "18", Heading: 180, Threshold: oppLoc, Elevation: 0},
+	})
+
+	mkNav := func() nav.Nav {
+		return nav.Nav{
+			FlightState: nav.FlightState{
+				Position:       math.Point2LL{2.0 / 60, -4.0 / 60},
+				Heading:        360,
+				Altitude:       2500,
+				NmPerLongitude: 60,
+				ArrivalAirport: av.Waypoint{Fix: "KPAT"},
+			},
+		}
+	}
+
+	// Left downwind: west of runway 36, ends rolling out on the
+	// downwind heading (south).
+	n := mkNav()
+	intent := n.EnterTrafficPattern("36", nav.VisualEntryLeftTraffic, false)
+	if _, unable := intent.(av.UnableIntent); unable {
+		t.Fatalf("unexpected UnableIntent: %v", intent)
+	}
+	wps := n.Waypoints
+	if len(wps) != 2 || wps[0].Fix != "_36_DOWNWIND" {
+		t.Fatalf("expected downwind waypoints, got %v", wpNames(wps))
+	}
+	if wps[0].Location[0] >= 0 {
+		t.Errorf("left downwind should be west of runway 36, got lon %v", wps[0].Location[0])
+	}
+	if h := wps[1].Heading; h < 175 || h > 185 {
+		t.Errorf("late downwind rollout heading = %d, want ~180", h)
+	}
+
+	// Right base: east of the field, rolls out toward the final course.
+	n2 := mkNav()
+	_ = n2.EnterTrafficPattern("36", nav.VisualEntryRightBase, false)
+	if len(n2.Waypoints) != 1 || n2.Waypoints[0].Fix != "_36_BASE" {
+		t.Fatalf("expected base waypoint, got %v", wpNames(n2.Waypoints))
+	}
+	if n2.Waypoints[0].Location[0] <= 0 {
+		t.Errorf("right base should be east of runway 36, got lon %v", n2.Waypoints[0].Location[0])
+	}
+	if h := n2.Waypoints[0].Heading; h < 265 || h > 275 {
+		t.Errorf("base rollout heading = %d, want ~270", h)
+	}
+
+	// Straight in: on the extended centerline, rolling out on final course.
+	n3 := mkNav()
+	_ = n3.EnterTrafficPattern("36", nav.VisualEntryNone, true)
+	if len(n3.Waypoints) != 1 || n3.Waypoints[0].Fix != "_36_EXT_FINAL" {
+		t.Fatalf("expected extended final waypoint, got %v", wpNames(n3.Waypoints))
+	}
+	if h := n3.Waypoints[0].Heading; h != 360 && h != 0 {
+		t.Errorf("straight-in rollout heading = %d, want 360", h)
+	}
+
+	// No runway and no assigned approach: unable.
+	n4 := mkNav()
+	if intent := n4.EnterTrafficPattern("", nav.VisualEntryLeftTraffic, false); intent != nil {
+		if _, unable := intent.(av.UnableIntent); !unable {
+			t.Errorf("expected UnableIntent without runway, got %T", intent)
+		}
 	}
 }

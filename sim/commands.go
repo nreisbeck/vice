@@ -10,6 +10,7 @@ import (
 
 	av "github.com/mmp/vice/aviation"
 	"github.com/mmp/vice/math"
+	"github.com/mmp/vice/nav"
 	"github.com/mmp/vice/util"
 	"github.com/mmp/vice/wx"
 )
@@ -43,8 +44,12 @@ func (s *Sim) AssignHeading(hdg *HeadingArgs) (av.CommandIntent, error) {
 		func(tcw TCW, ac *Aircraft) av.CommandIntent {
 			if hdg.Present {
 				return ac.FlyPresentHeading(s.State.SimTime, hdg.DelayReduction)
+			} else if hdg.LeftDegrees >= 360 {
+				return ac.Nav.StartOrbit(av.TurnLeft, hdg.LeftDegrees)
 			} else if hdg.LeftDegrees != 0 {
 				return ac.TurnLeft(hdg.LeftDegrees, s.State.SimTime, hdg.DelayReduction)
+			} else if hdg.RightDegrees >= 360 {
+				return ac.Nav.StartOrbit(av.TurnRight, hdg.RightDegrees)
 			} else if hdg.RightDegrees != 0 {
 				return ac.TurnRight(hdg.RightDegrees, s.State.SimTime, hdg.DelayReduction)
 			} else {
@@ -400,6 +405,33 @@ func (s *Sim) ContactTower(tcw TCW, callsign av.ADSBCallsign, freq av.Frequency)
 				ac.ControllerFrequency = "_TOWER"
 			}
 			return result
+		})
+}
+
+// EnterTrafficPattern handles standalone pattern-position instructions:
+// enter left/right downwind or base, or make straight in.
+func (s *Sim) EnterTrafficPattern(tcw TCW, callsign av.ADSBCallsign, runway, code string) (av.CommandIntent, error) {
+	s.mu.Lock(s.lg)
+	defer s.mu.Unlock(s.lg)
+
+	entry := nav.VisualEntryNone
+	straightIn := false
+	switch code {
+	case "LD":
+		entry = nav.VisualEntryLeftTraffic
+	case "RD":
+		entry = nav.VisualEntryRightTraffic
+	case "LB":
+		entry = nav.VisualEntryLeftBase
+	case "RB":
+		entry = nav.VisualEntryRightBase
+	case "SI":
+		straightIn = true
+	}
+
+	return s.dispatchControlledAircraftCommand(tcw, callsign,
+		func(tcw TCW, ac *Aircraft) av.CommandIntent {
+			return ac.Nav.EnterTrafficPattern(runway, entry, straightIn)
 		})
 }
 

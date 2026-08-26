@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	av "github.com/mmp/vice/aviation"
@@ -52,6 +53,15 @@ func (s *Sim) goAround(ac *Aircraft) {
 	ac.AskedAboutTowerSwitch = false
 	ac.SpacingGoAroundDeclined = false
 	ac.GoAroundOnRunwayHeading = proc.IsRunwayHeading
+
+	if s.tryPatternGoAround(ac, airport, runway) {
+		s.holdDeparturesForGoAround(airport, append([]string{runway}, proc.HoldDepartures...), proc.HandoffController)
+		return
+	}
+	if s.tryPublishedMissed(ac, approach, proc) {
+		s.holdDeparturesForGoAround(airport, append([]string{runway}, proc.HoldDepartures...), proc.HandoffController)
+		return
+	}
 
 	altitude := float32(proc.Altitude)
 
@@ -205,6 +215,9 @@ func (s *Sim) checkFinalApproachSpacing() {
 			// >10% but <=20% violation: 50% chance (one-time roll); skip check if already declined
 			issueGoAround := majorBust || (minorBust && !trailing.SpacingGoAroundDeclined && s.Rand.Float32() < 0.5)
 			if issueGoAround {
+				if s.trySpacingOrbit(trailing, threshold) {
+					continue
+				}
 				s.goAroundForSpacing(trailing)
 			} else if minorBust {
 				trailing.SpacingGoAroundDeclined = true
@@ -226,4 +239,206 @@ type GoAroundProcedure struct {
 	Altitude          int      `json:"altitude"`           // feet, e.g., 2000, 3000
 	HandoffController TCP      `json:"handoff_controller"` // TCP (e.g., "1D")
 	HoldDepartures    []string `json:"hold_departures"`    // runways to hold, empty = no holds
+}
+
+// tryPatternGoAround sends a light piston going around from a visual
+// approach (or as a VFR arrival) back into the traffic pattern -- upwind,
+// crosswind, downwind -- where the pilot asks to be resequenced, instead
+// of flying a straight-out departure-leg go-around.
+func (s *Sim) tryPatternGoAround(ac *Aircraft, airport, runway string) bool {
+	perf, ok := av.DB.AircraftPerformance[ac.FlightPlan.AircraftType]
+	if !ok || perf.Engine.AircraftType != "P" {
+		return false
+	}
+	if ac.FlightPlan.Rules == av.FlightRulesIFR {
+		ap := ac.Nav.Approach.Assigned
+		if ap == nil || (ap.Type != av.VisualApproach && ap.Type != av.ChartedVisualApproach) {
+			return false
+		}
+	}
+	rwy, ok := av.LookupRunway(airport, runway)
+	if !ok {
+		return false
+	}
+	opp, ok := av.LookupOppositeRunway(airport, runway)
+	if !ok {
+		return false
+	}
+	elevation := 0
+	if ap, ok := av.DB.Airports[airport]; ok {
+		elevation = ap.Elevation
+	}
+
+	b := newPatternBuilder(rwy, elevation, s.State.NmPerLongitude, s.State.MagneticVariation)
+	rwyLen := math.NMDistance2LL(rwy.Threshold, opp.Threshold)
+
+	// Pattern side: parallels dictate it -- a runway ending in R flies
+	// right traffic, L flies left; otherwise standard left traffic. The
+	// pattern builder's lateral offsets are left-positive, so right
+	// traffic negates them.
+	pdist := float32(0.75) // pattern lateral offset (nm)
+	if strings.HasSuffix(runway, "R") {
+		pdist = -pdist
+	}
+	const upwindExt = 0.5 // extension past the departure end
+
+	// A full closed circuit back to the runway: the aircraft stays in
+	// the tower's pattern and re-lands, rather than returning to the
+	// approach controller. (The tower resequences pattern traffic; with
+	// tower go-arounds enabled, the spacing check can send it around
+	// again if the gap doesn't develop.)
+	wps := av.WaypointArray{
+		b.waypoint("_ga_upwind", rwyLen+upwindExt, 0, 500, 80, av.VFRPhaseUpwind),
+		b.waypoint("_ga_crosswind", rwyLen+upwindExt, pdist, 800, 80, av.VFRPhaseCrosswind),
+		b.waypoint("_ga_downwind", rwyLen/2, pdist, 1000, 80, av.VFRPhaseDownwind),
+		b.waypoint("_ga_late_downwind", -0.5, pdist, 1000, 80, av.VFRPhaseDownwind),
+		b.waypoint("_ga_base", -1.0, pdist/2, 500, 70, av.VFRPhaseBase),
+		b.waypoint("_ga_final", -1.0, 0, 200, 65, av.VFRPhaseFinal),
+	}
+	threshold := b.waypoint("_ga_threshold", 0, 0, 0, 60, av.VFRPhaseFinal)
+	threshold.SetLand(true)
+	threshold.SetFlyOver(true)
+	wps = append(wps, threshold)
+
+	// Stay with the tower; the go-around call goes out on the current
+	// frequency. Restore the tower-contact flag the go-around reset so
+	// the tower's final-spacing checks keep watching the aircraft.
+	if s.isVirtualController(ac.ControllerFrequency) || ac.ControllerFrequency == "_TOWER" {
+		ac.GotContactTower = true
+	}
+	s.enqueuePilotTransmission(ac.ADSBCallsign, TCP(ac.ControllerFrequency), PendingTransmissionGoAround)
+
+	ac.Nav.GoAroundWithRoute(float32(elevation+1000), wps)
+	ac.PatternCircuitRunway = runway
+	return true
+}
+
+// tryPublishedMissed has an IFR arrival on an instrument approach fly the
+// published missed approach when the CIFP provides one and the scenario
+// doesn't adapt an explicit go-around procedure for the runway.
+func (s *Sim) tryPublishedMissed(ac *Aircraft, approach *av.Approach, proc *GoAroundProcedure) bool {
+	if ac.FlightPlan.Rules != av.FlightRulesIFR {
+		return false
+	}
+	if approach.Type == av.VisualApproach || approach.Type == av.ChartedVisualApproach {
+		return false
+	}
+	if len(approach.MissedApproach) == 0 {
+		return false
+	}
+	// A scenario-adapted go-around procedure takes precedence.
+	for _, ar := range s.State.ArrivalRunways {
+		if ar.Airport == ac.FlightPlan.ArrivalAirport && ar.Runway.Base() == approach.Runway && ar.GoAround != nil {
+			return false
+		}
+	}
+
+	wps := slices.Clone(approach.MissedApproach)
+	extra := av.WaypointExtra{GoAroundContactController: proc.HandoffController}
+	if wps[0].Extra != nil {
+		extra = *wps[0].Extra
+		extra.GoAroundContactController = proc.HandoffController
+	}
+	wps[0].Extra = &extra
+
+	ac.Nav.GoAroundWithRoute(float32(proc.Altitude), wps)
+	return true
+}
+
+// trySpacingOrbit has the tower spin a pattern-capable aircraft for
+// spacing -- a 360 away from the final -- instead of sending it around.
+// Only light pistons on a visual (or VFR) that are still far enough out
+// qualify; jets and short-final traffic still go around.
+func (s *Sim) trySpacingOrbit(ac *Aircraft, threshold math.Point2LL) bool {
+	if ac.Nav.Orbit != nil {
+		return true // already orbiting; give it time to develop spacing
+	}
+	perf, ok := av.DB.AircraftPerformance[ac.FlightPlan.AircraftType]
+	if !ok || perf.Engine.AircraftType != "P" {
+		return false
+	}
+	if ac.FlightPlan.Rules == av.FlightRulesIFR {
+		ap := ac.Nav.Approach.Assigned
+		if ap == nil || (ap.Type != av.VisualApproach && ap.Type != av.ChartedVisualApproach) {
+			return false
+		}
+	}
+	// Inside ~3.5nm a spin is worse than a go-around.
+	if math.NMDistance2LL(ac.Position(), threshold) < 3.5 {
+		return false
+	}
+
+	// No radio call on the approach frequency: the aircraft is with the
+	// tower, and that exchange happens there. The turn itself is the
+	// only thing the approach scope sees.
+	ac.Nav.StartOrbit(s.orbitAwayFrom(ac, threshold), 360)
+	return true
+}
+
+// orbitAwayFrom returns the 360 direction whose initial turn takes the
+// aircraft away from the given point.
+func (s *Sim) orbitAwayFrom(ac *Aircraft, p math.Point2LL) av.TurnDirection {
+	nmPerLong := s.State.NmPerLongitude
+	acNM := math.LL2NM(ac.Position(), nmPerLong)
+	toP := math.Sub2f(math.LL2NM(p, nmPerLong), acNM)
+	hdg := math.MagneticToTrue(ac.Nav.FlightState.Heading, s.State.MagneticVariation)
+	hv := math.SinCos(math.Radians(float32(hdg)))
+	if hv[0]*toP[1]-hv[1]*toP[0] > 0 {
+		// The point is to the left of the aircraft's heading; orbit right.
+		return av.TurnRight
+	}
+	return av.TurnLeft
+}
+
+// managePatternCircuits is the virtual tower working its pattern: an
+// aircraft on a post-go-around circuit approaching its base turn is held
+// on the downwind -- spun in place -- while the final is occupied, and
+// turns base once the gap exists.
+func (s *Sim) managePatternCircuits() {
+	for _, ac := range s.Aircraft {
+		if ac.PatternCircuitRunway == "" || ac.Nav.Orbit != nil {
+			continue
+		}
+		wps := ac.Nav.Waypoints
+		if len(wps) == 0 || !strings.HasSuffix(wps[0].Fix, "_ga_base") {
+			continue
+		}
+		// Only decide when the base turn is imminent.
+		if math.NMDistance2LL(ac.Position(), wps[0].Location) > 1.0 {
+			continue
+		}
+		if s.finalOccupied(ac) {
+			if rwy, ok := av.LookupRunway(ac.FlightPlan.ArrivalAirport, ac.PatternCircuitRunway); ok {
+				ac.Nav.StartOrbit(s.orbitAwayFrom(ac, rwy.Threshold), 360)
+			}
+		}
+	}
+}
+
+// finalOccupied reports whether another aircraft is inbound to the
+// circuit aircraft's runway inside 5nm of the threshold.
+func (s *Sim) finalOccupied(circuit *Aircraft) bool {
+	rwy, ok := av.LookupRunway(circuit.FlightPlan.ArrivalAirport, circuit.PatternCircuitRunway)
+	if !ok {
+		return false
+	}
+	rwyBase := av.RunwayID(circuit.PatternCircuitRunway).Base()
+	for _, other := range s.Aircraft {
+		if other == circuit || other.FlightPlan.ArrivalAirport != circuit.FlightPlan.ArrivalAirport {
+			continue
+		}
+		onFinal := false
+		if ap := other.Nav.Approach.Assigned; ap != nil && av.RunwayID(ap.Runway).Base() == rwyBase {
+			onFinal = true
+		} else if other.PatternCircuitRunway != "" &&
+			av.RunwayID(other.PatternCircuitRunway).Base() == rwyBase &&
+			len(other.Nav.Waypoints) > 0 && !strings.HasSuffix(other.Nav.Waypoints[0].Fix, "_ga_base") {
+			// Another circuit aircraft already inside its own base turn.
+			onFinal = true
+		}
+		if onFinal && math.NMDistance2LL(other.Position(), rwy.Threshold) < 5 {
+			return true
+		}
+	}
+	return false
 }

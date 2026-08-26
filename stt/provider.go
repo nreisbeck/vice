@@ -617,6 +617,14 @@ func (p *Transcriber) BuildAircraftContext(
 						intersecting := av.IntersectingRunways(ar.Airport, ar.Runway, state.NmPerLongitude, 0.5)
 						sttAc.LAHSORunways = append(sttAc.LAHSORunways, intersecting...)
 					}
+					// All runways at the airport, for circle-to-land matching.
+					if len(sttAc.Runways) == 0 {
+						if fa, ok := av.DB.Airports[ar.Airport]; ok {
+							for _, r := range fa.Runways {
+								sttAc.Runways = append(sttAc.Runways, r.Id)
+							}
+						}
+					}
 				}
 			}
 		}

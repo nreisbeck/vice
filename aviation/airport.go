@@ -289,6 +289,9 @@ func (ap *Airport) PostDeserialize(icao string, loc Locator, nmPerLongitude floa
 				for _, wps := range dbAppr.Waypoints {
 					appr.Waypoints = append(appr.Waypoints, deep.MustCopy(wps))
 				}
+				if len(dbAppr.MissedApproach) > 0 {
+					appr.MissedApproach = deep.MustCopy(dbAppr.MissedApproach)
+				}
 			}
 		} else {
 			if appr.Type == UnknownApproach {
@@ -1080,6 +1083,9 @@ type Approach struct {
 	Type      ApproachType    `json:"type"`
 	Runway    string          `json:"runway"`
 	Waypoints []WaypointArray `json:"waypoints"`
+	// MissedApproach holds the published missed approach's fix-based
+	// legs, from the CIFP; may be empty.
+	MissedApproach WaypointArray `json:"-"`
 
 	// Set in Airport PostDeserialize()
 	Threshold         math.Point2LL

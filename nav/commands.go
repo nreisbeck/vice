@@ -18,6 +18,35 @@ import (
 // GoAroundWithProcedure initiates a go-around with a defined procedure.
 // The runwayEndWP waypoint should have Location (opposite threshold), FlyOver,
 // Heading (outbound), AltitudeRestriction, and GoAroundContactController set.
+// NavOrbit tracks a commanded turn through a full circle ("make a left
+// three sixty for spacing"): the aircraft turns in Direction until
+// Remaining degrees have elapsed, then resumes its previous heading or
+// route, which are left untouched.
+type NavOrbit struct {
+	Direction av.TurnDirection
+	Remaining float32 // degrees
+}
+
+// StartOrbit begins a commanded 360 (or more) in the given direction.
+func (nav *Nav) StartOrbit(turn av.TurnDirection, degrees int) av.CommandIntent {
+	if turn == av.TurnClosest {
+		turn = av.TurnLeft
+	}
+	nav.Orbit = &NavOrbit{Direction: turn, Remaining: float32(degrees)}
+	return av.OrbitIntent{Left: turn == av.TurnLeft, Degrees: degrees}
+}
+
+// GoAroundWithRoute is a go-around that follows a route -- a published
+// missed approach or a pattern rejoin -- rather than a single heading.
+func (nav *Nav) GoAroundWithRoute(altitude float32, wps av.WaypointArray) {
+	nav.DeferredNavHeading = nil
+	nav.Heading = NavHeading{}
+	nav.Speed = NavSpeed{}
+	nav.Approach = NavApproach{}
+	nav.setAssignedAltitude(altitude)
+	nav.Waypoints = wps
+}
+
 func (nav *Nav) GoAroundWithProcedure(altitude float32, runwayEndWP av.Waypoint) {
 	nav.DeferredNavHeading = nil
 	nav.Speed = NavSpeed{}

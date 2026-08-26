@@ -1339,6 +1339,76 @@ func registerAllCommands() {
 		WithPriority(16),
 	)
 
+	// Spacing 360s: "make a left three sixty [for spacing]".
+	for _, o := range []struct{ dir, cmd, name string }{
+		{"left", "L360D", "left_360"},
+		{"right", "R360D", "right_360"},
+	} {
+		registerSTTCommand(
+			"make|give [me] [a] "+o.dir+" three sixty [for] [spacing|traffic|delay]",
+			func() string { return o.cmd },
+			WithName(o.name),
+			WithPriority(15),
+		)
+		registerSTTCommand(
+			"make|give [me] [a] "+o.dir+" {num:360-360} [for] [spacing|traffic|delay]",
+			func(deg int) string { return o.cmd },
+			WithName(o.name+"_num"),
+			WithPriority(15),
+		)
+	}
+
+	// Standalone pattern-position instructions: "enter left downwind
+	// runway 28R", "join right base", "make straight in runway 15".
+	for _, pe := range []struct{ phrase, code, name string }{
+		{"left downwind", "LD", "enter_left_downwind"},
+		{"right downwind", "RD", "enter_right_downwind"},
+		{"left base", "LB", "enter_left_base"},
+		{"right base", "RB", "enter_right_base"},
+	} {
+		registerSTTCommand(
+			"enter|join|make [the] [a] "+pe.phrase+" [runway] {runway}",
+			func(rwy string) string { return "E" + pe.code + rwy },
+			WithName(pe.name),
+			WithPriority(15),
+		)
+		registerSTTCommand(
+			"enter|join|make [the] [a] "+pe.phrase,
+			func() string { return "E" + pe.code },
+			WithName(pe.name+"_norwy"),
+			WithPriority(13),
+		)
+	}
+	registerSTTCommand(
+		"make|proceed [a] straight in [approach] [runway] {runway}",
+		func(rwy string) string { return "ESI" + rwy },
+		WithName("make_straight_in"),
+		WithPriority(15),
+	)
+	registerSTTCommand(
+		"make|proceed [a] straight in [approach]",
+		func() string { return "ESI" },
+		WithName("make_straight_in_norwy"),
+		WithPriority(13),
+	)
+
+	// Pattern-entry visual approaches: "cleared visual approach runway
+	// two eight left, left traffic|right base|..." (#865)
+	for _, e := range []struct{ phrase, code, name string }{
+		{"left traffic", "LT", "cleared_visual_left_traffic"},
+		{"right traffic", "RT", "cleared_visual_right_traffic"},
+		{"left base", "LB", "cleared_visual_left_base"},
+		{"right base", "RB", "cleared_visual_right_base"},
+	} {
+		registerSTTCommand(
+			"cleared [the] {visual_approach_lahso} [,] [enter|make|via] "+e.phrase,
+			func(appr string) string { return "CVA" + appr + "/" + e.code },
+			WithName(e.name),
+			WithPriority(19),
+			WithSayAgainOnFail(),
+		)
+	}
+
 	// Compound: "cross N DME ..., cleared visual approach RWY" — emit CVA first so
 	// the visual approach is established before the crossing restriction.
 	registerSTTCommand(

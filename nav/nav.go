@@ -45,6 +45,7 @@ type Nav struct {
 	Heading     NavHeading
 	Approach    NavApproach
 	Airwork     *NavAirwork
+	Orbit       *NavOrbit // an in-progress commanded 360 for spacing
 	Prespawn    bool
 
 	FixAssignments map[string]NavFixAssignment
@@ -233,13 +234,14 @@ type NavApproach struct {
 	AssignedId                  string
 	ATPAVolume                  *av.ATPAVolume
 	Cleared                     bool
-	StandbyApproach             bool // suppress repeated approach clearance requests
-	RequestApproachClearance    bool // pilot should radio for approach clearance
-	GoAroundNoApproachClearance bool // pilot should go around (reached FAF without clearance)
-	RequestVectors              bool // pilot should request vectors (overshot localizer)
-	RequestAltitude             bool // pilot should request altitude after being vectored off STAR/approach
-	MissedApproachIntercept     bool // bad vectors -> pilot was unable to intercept
-	ApproachClearanceCancelled  bool // controller canceled approach clearance
+	CircleToLand                *CircleToLandSpec // circle visually to land on another runway after the approach
+	StandbyApproach             bool              // suppress repeated approach clearance requests
+	RequestApproachClearance    bool              // pilot should radio for approach clearance
+	GoAroundNoApproachClearance bool              // pilot should go around (reached FAF without clearance)
+	RequestVectors              bool              // pilot should request vectors (overshot localizer)
+	RequestAltitude             bool              // pilot should request altitude after being vectored off STAR/approach
+	MissedApproachIntercept     bool              // bad vectors -> pilot was unable to intercept
+	ApproachClearanceCancelled  bool              // controller canceled approach clearance
 	InterceptState              InterceptState
 	PassedApproachFix           bool // have we passed a fix on the approach yet?
 	PassedFAF                   bool

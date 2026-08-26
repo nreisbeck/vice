@@ -24,6 +24,23 @@ func (nav *Nav) headingForTrack(hdg math.MagneticHeading, wxs wx.Sample) math.Ma
 }
 
 func (nav *Nav) updateHeading(callsign string, wxs wx.Sample, simTime Time) {
+	if o := nav.Orbit; o != nil {
+		// A commanded 360: turn at standard rate in the given direction
+		// until the circle is complete, then resume the underlying
+		// heading/route, which were left in place.
+		rate := min(o.Remaining, StandardTurnRate)
+		turn := rate
+		if o.Direction == av.TurnLeft {
+			turn = -rate
+		}
+		nav.FlightState.Heading = math.OffsetHeading(nav.FlightState.Heading, turn)
+		o.Remaining -= rate
+		if o.Remaining <= 0 {
+			nav.Orbit = nil
+		}
+		return
+	}
+
 	targetHeading, turnDirection, turnRate := nav.TargetHeading(callsign, wxs, simTime)
 
 	headingDiff := math.HeadingDifference(nav.FlightState.Heading, targetHeading)
@@ -460,6 +477,9 @@ func (nav *Nav) updateWaypoints(callsign string, wxs wx.Sample, fp *av.FlightPla
 			nav.Approach.PassedApproachFix = true
 			if wp.FAF() {
 				nav.Approach.PassedFAF = true
+				if ctl := nav.Approach.CircleToLand; ctl != nil {
+					nav.beginCircleToLand(ctl)
+				}
 			}
 		} else if wp.OnApproach() {
 			// Overflew an approach fix but haven't been cleared yet.

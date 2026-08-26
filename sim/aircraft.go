@@ -96,6 +96,9 @@ type Aircraft struct {
 	SentAroundForSpacing bool
 	// Set when a spacing check rolled "no go-around"; prevents re-rolling every tick.
 	SpacingGoAroundDeclined bool
+	// Set while the aircraft is flying a pattern circuit after a
+	// go-around; the tower holds its base turn for final traffic.
+	PatternCircuitRunway string
 	// Set when going around on runway heading (vs a specific assigned heading).
 	GoAroundOnRunwayHeading bool
 	// Set when the aircraft has gone around; prevents the arrival drop

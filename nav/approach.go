@@ -306,6 +306,7 @@ func (nav *Nav) getApproach(airport *av.Airport, id string) (*av.Approach, []*av
 }
 
 func (nav *Nav) ExpectApproach(airport *av.Airport, approach string, runwayWaypoints map[string]av.WaypointArray) av.CommandIntent {
+	approach, _ = cutVisualEntry(approach)
 	id, lahsoRunway, _ := strings.Cut(approach, "/LAHSO")
 
 	if lahsoRunway != "" {
@@ -682,19 +683,90 @@ type FollowTraffic struct {
 	Route    av.WaypointArray
 }
 
+// VisualPatternEntry identifies a traffic-pattern entry given with a
+// visual approach clearance ("cleared visual approach, left traffic").
+type VisualPatternEntry int
+
+const (
+	VisualEntryNone VisualPatternEntry = iota
+	VisualEntryLeftTraffic
+	VisualEntryRightTraffic
+	VisualEntryLeftBase
+	VisualEntryRightBase
+)
+
+// Spoken returns the phraseology for the entry, for pilot readbacks.
+func (e VisualPatternEntry) Spoken() string {
+	switch e {
+	case VisualEntryLeftTraffic:
+		return "left traffic"
+	case VisualEntryRightTraffic:
+		return "right traffic"
+	case VisualEntryLeftBase:
+		return "left base"
+	case VisualEntryRightBase:
+		return "right base"
+	}
+	return ""
+}
+
+// CircleToLandSpec records a circling clearance: fly the instrument
+// approach, then circle visually to land on Runway via the given
+// pattern entry.
+type CircleToLandSpec struct {
+	Runway string
+	Entry  VisualPatternEntry
+}
+
+// cutVisualEntry strips a trailing pattern-entry specifier (/LT, /RT,
+// /LB, /RB) from a visual approach command string.
+func cutVisualEntry(approach string) (string, VisualPatternEntry) {
+	for _, e := range []struct {
+		suffix string
+		entry  VisualPatternEntry
+	}{
+		{"/LT", VisualEntryLeftTraffic},
+		{"/RT", VisualEntryRightTraffic},
+		{"/LB", VisualEntryLeftBase},
+		{"/RB", VisualEntryRightBase},
+	} {
+		if s, ok := strings.CutSuffix(approach, e.suffix); ok {
+			return s, e.entry
+		}
+	}
+	return approach, VisualEntryNone
+}
+
 func (nav *Nav) ClearedApproach(approach string, traffic *FollowTraffic, simTime Time, straightIn bool) av.CommandIntent {
 	ap := nav.Approach.Assigned
 	if ap == nil {
 		return av.MakeUnableIntent("unable. We haven't been told to expect an approach")
 	}
 
+	approach, entry := cutVisualEntry(approach)
 	id, lahsoRunway, _ := strings.Cut(approach, "/LAHSO")
+	id, circleRunway, hasCircle := strings.Cut(id, "/C")
 	if id != "" && nav.Approach.AssignedId != id {
 		return av.MakeUnableIntent("unable. We were told to expect the {appr} approach.", ap.FullName)
 	}
 
 	if ap.Type == av.VisualApproach {
-		return nav.ClearedVisualApproach(traffic, lahsoRunway)
+		if hasCircle {
+			return av.MakeUnableIntent("unable, we can't circle from a visual approach")
+		}
+		return nav.ClearedVisualApproach(traffic, lahsoRunway, entry)
+	}
+
+	circleSpoken := ""
+	if hasCircle {
+		if _, ok := av.LookupRunway(nav.FlightState.ArrivalAirport.Fix, circleRunway); !ok {
+			return av.MakeUnableIntent("unable, we can't circle to runway " + circleRunway)
+		}
+		if entry == VisualEntryNone {
+			entry = VisualEntryLeftTraffic
+		}
+		nav.Approach.CircleToLand = &CircleToLandSpec{Runway: circleRunway, Entry: entry}
+		circleSpoken = circleRunway
 	}
 
 	if nav.Approach.Cleared {
@@ -703,10 +775,12 @@ func (nav *Nav) ClearedApproach(approach string, traffic *FollowTraffic, simTime
 			nav.Approach.NoPT = true
 		}
 		return av.ClearedApproachIntent{
-			Approach:    ap.FullName,
-			StraightIn:  straightIn,
-			CancelHold:  cancelHold,
-			LAHSORunway: lahsoRunway,
+			Approach:     ap.FullName,
+			StraightIn:   straightIn,
+			CancelHold:   cancelHold,
+			LAHSORunway:  lahsoRunway,
+			CircleToLand: circleSpoken,
+			PatternEntry: util.Select(circleSpoken != "", entry.Spoken(), ""),
 		}
 	}
 
@@ -734,10 +808,12 @@ func (nav *Nav) ClearedApproach(approach string, traffic *FollowTraffic, simTime
 	nav.flyProcedureTurnIfNecessary()
 
 	return av.ClearedApproachIntent{
-		Approach:    ap.FullName,
-		StraightIn:  straightIn,
-		CancelHold:  cancelHold,
-		LAHSORunway: lahsoRunway,
+		Approach:     ap.FullName,
+		StraightIn:   straightIn,
+		CancelHold:   cancelHold,
+		LAHSORunway:  lahsoRunway,
+		CircleToLand: circleSpoken,
+		PatternEntry: util.Select(circleSpoken != "", entry.Spoken(), ""),
 	}
 }
 
@@ -753,7 +829,7 @@ func (nav *Nav) ClearedApproach(approach string, traffic *FollowTraffic, simTime
 //     in-trail sequencing along that route is attempted first.
 //   - Otherwise, a synthetic descent profile (TOD/_3NM_FINAL anchors) is
 //     constructed from the visual references.
-func (nav *Nav) ClearedVisualApproach(follow *FollowTraffic, lahsoRunway string) av.CommandIntent {
+func (nav *Nav) ClearedVisualApproach(follow *FollowTraffic, lahsoRunway string, entry VisualPatternEntry) av.CommandIntent {
 	ap := nav.Approach.Assigned
 	if ap == nil || ap.Type != av.VisualApproach {
 		return av.MakeUnableIntent("unable. We haven't been told to expect a visual approach")
@@ -805,7 +881,10 @@ func (nav *Nav) ClearedVisualApproach(follow *FollowTraffic, lahsoRunway string)
 	// Otherwise, construct the route either from the leader (in-trail) or a
 	// synthesized descent profile across the references.
 	var wps []av.Waypoint
-	if follow != nil && len(follow.Route) > 0 {
+	if entry != VisualEntryNone {
+		wps = nav.visualApproachRouteViaPattern(runway, entry)
+	}
+	if wps == nil && follow != nil && len(follow.Route) > 0 {
 		wps = nav.visualApproachRouteFollowingTraffic(runway, follow.Position, follow.Route)
 	}
 	if wps == nil {
@@ -853,9 +932,10 @@ func (nav *Nav) ClearedVisualApproach(follow *FollowTraffic, lahsoRunway string)
 	nav.Altitude = preserved
 
 	return av.ClearedApproachIntent{
-		Approach:    ap.FullName,
-		CancelHold:  cancelHold,
-		LAHSORunway: lahsoRunway,
+		Approach:     ap.FullName,
+		CancelHold:   cancelHold,
+		LAHSORunway:  lahsoRunway,
+		PatternEntry: entry.Spoken(),
 	}
 }
 
@@ -1281,4 +1361,169 @@ func (nav *Nav) visualApproachRouteFromReferences(runway string, followTraffic *
 		wps[i].SetOnApproach(true)
 	}
 	return wps
+}
+
+// visualApproachRouteViaPattern synthesizes a traffic-pattern entry route
+// for a visual approach clearance with a pattern entry ("left traffic",
+// "right base"): the aircraft enters the downwind (or base) on the
+// requested side and flies a pattern-sized circuit to the runway.
+func (nav *Nav) visualApproachRouteViaPattern(runway string, entry VisualPatternEntry) []av.Waypoint {
+	arrICAO := nav.FlightState.ArrivalAirport.Fix
+	rwy, ok := av.LookupRunway(arrICAO, runway)
+	if !ok {
+		return nil
+	}
+	opp, ok := av.LookupOppositeRunway(arrICAO, runway)
+	if !ok {
+		return nil
+	}
+
+	nmPerLong := nav.FlightState.NmPerLongitude
+	thr := math.LL2NM(rwy.Threshold, nmPerLong)
+	dir := math.Normalize2f(math.Sub2f(math.LL2NM(opp.Threshold, nmPerLong), thr))
+	side := [2]float32{-dir[1], dir[0]} // left of the landing direction
+	if entry == VisualEntryRightTraffic || entry == VisualEntryRightBase {
+		side = math.Scale2f(side, -1)
+	}
+	elev := float32(rwy.Elevation)
+
+	mk := func(name string, along, lateral, agl float32) av.Waypoint {
+		p := math.Add2f(thr, math.Add2f(math.Scale2f(dir, along), math.Scale2f(side, lateral)))
+		wp := av.Waypoint{Fix: "_" + runway + name, Location: math.NM2LL(p, nmPerLong)}
+		wp.SetAltitudeRestriction(av.MakeAtAltitudeRestriction(elev + agl))
+		return wp
+	}
+
+	// Pattern dimensions sized for the faster arrivals a visual serves.
+	const pdist = 1.0   // downwind lateral offset
+	const baseExt = 1.7 // base leg distance behind the threshold
+
+	var wps []av.Waypoint
+	switch entry {
+	case VisualEntryLeftTraffic, VisualEntryRightTraffic:
+		wps = append(wps,
+			mk("_DOWNWIND", 1.0, pdist, 1200),
+			mk("_LATE_DOWNWIND", -0.8, pdist, 1000),
+			mk("_BASE", -baseExt, pdist/2, 600),
+			mk("_PATTERN_FINAL", -1.2, 0, 350))
+	case VisualEntryLeftBase, VisualEntryRightBase:
+		wps = append(wps,
+			mk("_BASE", -baseExt, pdist, 700),
+			mk("_PATTERN_FINAL", -1.2, 0, 350))
+	default:
+		return nil
+	}
+
+	thrWp := av.Waypoint{Fix: "_" + runway + "_THRESHOLD", Location: rwy.Threshold}
+	thrWp.SetAltitudeRestriction(av.MakeAtAltitudeRestriction(elev + float32(rwy.ThresholdCrossingHeight)))
+	wps = append(wps, thrWp)
+
+	last := &wps[len(wps)-1]
+	last.SetLand(true)
+	last.SetFlyOver(true)
+	for i := range wps {
+		wps[i].SetOnApproach(true)
+	}
+	return wps
+}
+
+// beginCircleToLand replaces the remaining route with a visual circling
+// pattern to the landing runway; invoked when the aircraft crosses the
+// FAF of the instrument approach it was cleared for.
+func (nav *Nav) beginCircleToLand(ctl *CircleToLandSpec) {
+	wps := nav.visualApproachRouteViaPattern(ctl.Runway, ctl.Entry)
+	if wps == nil {
+		return // runway data missing; keep flying the approach
+	}
+	nav.Approach.CircleToLand = nil
+	nav.Waypoints = append(wps, nav.FlightState.ArrivalAirport)
+	// Circle at the pattern's charted altitudes.
+	nav.Altitude = NavAltitude{}
+}
+
+// BeginCircleToLandForTest exposes the FAF circling transition for tests.
+func (nav *Nav) BeginCircleToLandForTest() {
+	if ctl := nav.Approach.CircleToLand; ctl != nil {
+		nav.beginCircleToLand(ctl)
+	}
+}
+
+// EnterTrafficPattern positions the aircraft in the traffic pattern for
+// the runway without an approach clearance: "enter left downwind runway
+// 28R", "join right base", "make straight in runway 15". The aircraft
+// proceeds to the pattern position at pattern altitude, rolls out on the
+// leg's heading, and awaits further instructions or a clearance. runway
+// may be empty when an approach is assigned; its runway is used.
+func (nav *Nav) EnterTrafficPattern(runway string, entry VisualPatternEntry, straightIn bool) av.CommandIntent {
+	if runway == "" {
+		if ap := nav.Approach.Assigned; ap != nil {
+			runway = ap.Runway
+		} else {
+			return av.MakeUnableIntent("unable, say the runway for the pattern entry")
+		}
+	}
+	arrICAO := nav.FlightState.ArrivalAirport.Fix
+	rwy, ok := av.LookupRunway(arrICAO, runway)
+	if !ok {
+		return av.MakeUnableIntent("unable, we don't know runway " + runway)
+	}
+	opp, ok := av.LookupOppositeRunway(arrICAO, runway)
+	if !ok {
+		return av.MakeUnableIntent("unable, we don't know runway " + runway)
+	}
+
+	nmPerLong := nav.FlightState.NmPerLongitude
+	magVar := nav.FlightState.MagneticVariation
+	thr := math.LL2NM(rwy.Threshold, nmPerLong)
+	dir := math.Normalize2f(math.Sub2f(math.LL2NM(opp.Threshold, nmPerLong), thr))
+	side := [2]float32{-dir[1], dir[0]} // left of the landing direction
+	if entry == VisualEntryRightTraffic || entry == VisualEntryRightBase {
+		side = math.Scale2f(side, -1)
+	}
+	elev := float32(rwy.Elevation)
+	tpa := elev + 1200
+
+	headingOf := func(v [2]float32) int16 {
+		h := math.TrueToMagnetic(math.VectorHeading(v), magVar)
+		return int16(math.NormalizeHeading(float32(h)) + 0.5)
+	}
+
+	mk := func(name string, along, lateral, alt float32) av.Waypoint {
+		p := math.Add2f(thr, math.Add2f(math.Scale2f(dir, along), math.Scale2f(side, lateral)))
+		wp := av.Waypoint{Fix: "_" + runway + name, Location: math.NM2LL(p, nmPerLong)}
+		wp.SetAltitudeRestriction(av.MakeAtAltitudeRestriction(alt))
+		return wp
+	}
+
+	const pdist = 1.0
+	var wps []av.Waypoint
+	var spoken string
+	switch {
+	case straightIn:
+		wp := mk("_EXT_FINAL", -6.0, 0, elev+1800)
+		wp.Heading = headingOf(dir)
+		wps = []av.Waypoint{wp}
+		spoken = "straight in"
+	case entry == VisualEntryLeftTraffic || entry == VisualEntryRightTraffic:
+		dw := mk("_DOWNWIND", 1.0, pdist, tpa)
+		late := mk("_LATE_DOWNWIND", -0.8, pdist, tpa)
+		late.Heading = headingOf(math.Scale2f(dir, -1))
+		wps = []av.Waypoint{dw, late}
+		spoken = util.Select(entry == VisualEntryLeftTraffic, "left", "right") + " downwind"
+	case entry == VisualEntryLeftBase || entry == VisualEntryRightBase:
+		base := mk("_BASE", -1.7, pdist, tpa)
+		base.Heading = headingOf(math.Scale2f(side, -1))
+		wps = []av.Waypoint{base}
+		spoken = util.Select(entry == VisualEntryLeftBase, "left", "right") + " base"
+	default:
+		return av.MakeUnableIntent("unable, say again the pattern entry")
+	}
+
+	nav.Heading = NavHeading{}
+	nav.DeferredNavHeading = nil
+	nav.Waypoints = wps
+	nav.Altitude = NavAltitude{}
+	nav.Approach.NoPT = true
+
+	return av.EnterPatternIntent{Position: spoken, Runway: runway}
 }

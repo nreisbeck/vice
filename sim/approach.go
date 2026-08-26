@@ -241,7 +241,7 @@ func (s *Sim) ClearedApproach(tcw TCW, callsign av.ADSBCallsign, approach string
 		func(tcw TCW, ac *Aircraft) av.CommandIntent {
 			var following *nav.FollowTraffic
 			if id, visual := strings.CutPrefix(approach, "_VIS"); visual {
-				rwy, _, _ := strings.Cut(id, "/LAHSO")
+				rwy, _, _ := strings.Cut(id, "/")
 				// Pilot must have the field or approach-cleared preceding
 				// traffic in sight before accepting a visual approach clearance.
 				if traffic, seen := s.recentApproachTrafficInSightForRunway(ac, rwy); traffic != nil {

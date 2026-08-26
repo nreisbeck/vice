@@ -1407,6 +1407,7 @@ func (s *Sim) updateState() {
 		s.updateEmergencies()
 
 		s.checkFinalApproachSpacing()
+		s.managePatternCircuits()
 
 		s.updatePatternPhases()
 		s.relievePatternPressure()
