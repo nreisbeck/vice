@@ -101,6 +101,16 @@ func findResourcesBasePath() string {
 		return resourcesBasePath
 	}
 
+	// A VICE_RESOURCES environment variable wins: it lets an app bundle
+	// point at a development checkout (a symlink inside the bundle would
+	// break its code signature).
+	if dir := os.Getenv("VICE_RESOURCES"); dir != "" {
+		if _, err := os.Stat(filepath.Join(dir, "videomaps")); err == nil {
+			resourcesBasePath = dir
+			return resourcesBasePath
+		}
+	}
+
 	dir, err := os.Getwd()
 	if err != nil {
 		panic(err)
